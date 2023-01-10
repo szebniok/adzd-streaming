@@ -1,0 +1,53 @@
+version: '3'
+
+services:
+  zookeeper:
+    image: bitnami/zookeeper:3.8
+    ports:
+      - "2181:2181"
+    volumes:
+      - "zookeeper_data:/bitnami"
+    environment:
+      - "ALLOW_ANONYMOUS_LOGIN=yes"
+  kafka:
+    image: bitnami/kafka:3.3
+    ports:
+      - "9092:9092"
+    volumes:
+      - "kafka_data:/bitnami"
+    environment:
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CREATE_TOPICS=example-topic:1:1
+    depends_on:
+      - zookeeper
+  pyspark:
+    image: jupyter/all-spark-notebook
+    command: "start.sh jupyter notebook --NotebookApp.token=''"
+    ports:
+      - "8888:8888"
+    volumes:
+      - "./notebooks:/home/jovyan/work"
+    environment:
+      - "PYSPARK_SUBMIT_ARGS= --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.3.1 pyspark-shell"
+  eventsim:
+    image: eventsim:1.0
+    entrypoint: "/opt/eventsim/eventsim.sh"
+    command: >
+      -c "examples/example-config.json"
+      --kafkaBrokerList kafka:9092
+      --randomseed 1
+      --continuous
+      --nusers 30000
+      --growth-rate 1
+      --from 1
+      --to -8
+      --userid 1
+    depends_on: 
+      - kafka
+        
+volumes:
+  zookeeper_data:
+    driver: local
+  kafka_data:
+    driver: local
